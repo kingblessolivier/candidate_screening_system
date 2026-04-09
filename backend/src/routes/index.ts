@@ -10,9 +10,17 @@ import {
 import {
   runScreening, getScreeningResults, getScreeningResult, getLatestScreeningForJob,
 } from "../controllers/screeningController";
+import { register, login, oauthSync, getMe } from "../controllers/authController";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+router.post("/auth/register", register);
+router.post("/auth/login", login);
+router.post("/auth/oauth", oauthSync);
+router.get("/auth/me", requireAuth, getMe);
 
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 router.post("/jobs", createJob);

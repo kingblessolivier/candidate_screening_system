@@ -1,8 +1,19 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { TalentProfile, Job, CandidateScore, ScreeningResult } from "../types";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const MODEL = "gemini-1.5-pro";
+const MODEL = "gemini-2.0-flash";
+
+function getModel() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not set in environment variables");
+  return new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: MODEL });
+}
+
+// Strip markdown code fences Gemini sometimes adds despite instructions
+function extractJSON(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return fenced ? fenced[1].trim() : text.trim();
+}
 
 // ─── Build the screening prompt ──────────────────────────────────────────────
 
@@ -111,7 +122,6 @@ export async function screenCandidates(
   shortlistSize: number = 10
 ): Promise<Omit<ScreeningResult, "_id" | "screeningDate">> {
   const startTime = Date.now();
-  const model = genAI.getGenerativeModel({ model: MODEL });
 
   // Process in batches if many candidates (Gemini has token limits)
   const BATCH_SIZE = 30;
@@ -119,8 +129,8 @@ export async function screenCandidates(
 
   if (candidates.length <= BATCH_SIZE) {
     const prompt = buildScreeningPrompt(job, candidates, shortlistSize);
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const result = await getModel().generateContent(prompt);
+    const text = extractJSON(result.response.text());
     const parsed = JSON.parse(text);
     allScores = parsed.shortlist;
   } else {
@@ -133,8 +143,8 @@ export async function screenCandidates(
     const batchResults = await Promise.all(
       batches.map(batch => {
         const prompt = buildScreeningPrompt(job, batch, Math.ceil(shortlistSize * 1.5));
-        return model.generateContent(prompt).then(r => {
-          const text = r.response.text().trim();
+        return getModel().generateContent(prompt).then(r => {
+          const text = extractJSON(r.response.text());
           return JSON.parse(text).shortlist as CandidateScore[];
         });
       })
@@ -150,8 +160,8 @@ export async function screenCandidates(
       .filter(Boolean) as TalentProfile[];
 
     const finalPrompt = buildScreeningPrompt(job, topProfiles, shortlistSize);
-    const finalResult = await model.generateContent(finalPrompt);
-    const finalText = finalResult.response.text().trim();
+    const finalResult = await getModel().generateContent(finalPrompt);
+    const finalText = extractJSON(finalResult.response.text());
     allScores = JSON.parse(finalText).shortlist;
   }
 
@@ -175,7 +185,7 @@ export async function screenCandidates(
 // ─── Resume Parser ────────────────────────────────────────────────────────────
 
 export async function parseResumeToProfile(rawText: string, email?: string): Promise<Partial<TalentProfile>> {
-  const model = genAI.getGenerativeModel({ model: MODEL });
+  const model = getModel();
 
   const prompt = `You are an expert resume parser. Extract structured information from the following resume text and return it as JSON matching the Umurava Talent Profile Schema.
 
@@ -201,6 +211,6 @@ Return ONLY valid JSON (no markdown) with this structure:
 }`;
 
   const result = await model.generateContent(prompt);
-  const text = result.response.text().trim();
+  const text = extractJSON(result.response.text());
   return JSON.parse(text);
 }

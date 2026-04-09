@@ -5,6 +5,19 @@ const api = axios.create({
   timeout: 120000, // 2 min for AI screening
 });
 
+// Attach backend JWT from NextAuth session to every request
+api.interceptors.request.use(async (config) => {
+  if (typeof window !== "undefined") {
+    try {
+      const { getSession } = await import("next-auth/react");
+      const session = await getSession();
+      const token = (session as { backendToken?: string })?.backendToken;
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+    } catch {}
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {

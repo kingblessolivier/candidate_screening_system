@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { ClientLayout } from "@/components/layout/ClientLayout";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -11,15 +11,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-gray-950 text-gray-100 min-h-screen" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-gray-950 text-gray-100 min-h-screen" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }} suppressHydrationWarning>
         <Providers>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 ml-64 p-8 overflow-auto">
-              {children}
-            </main>
-          </div>
+          <ClientLayout>{children}</ClientLayout>
           <Toaster
             position="top-right"
             toastOptions={{
